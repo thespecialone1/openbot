@@ -1,0 +1,29 @@
+{
+  "name": "khaleej-news-api",
+  "version": "1.0.0",
+  "description": "Khaleej Times News Scraper API + Telegram & WhatsApp Bots",
+  "main": "server.js",
+  "scripts": {
+    "start:api": "node server.js",
+    "start:telegram": "node bot.js",
+    "start:whatsapp": "node whatsapp-bot.js",
+    "dev:api": "nodemon server.js",
+    "dev:whatsapp": "nodemon whatsapp-bot.js",
+    "dev:telegram": "nodemon bot.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-cache": "^5.1.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "pino": "^9.3.2",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

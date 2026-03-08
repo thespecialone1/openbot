@@ -1,0 +1,243 @@
+require("dotenv").config();
+const TelegramBot = require("node-telegram-bot-api");
+const axios = require("axios");
+
+// ─── Config ────────────────────────────────────────────────────────────────
+
+const BOT_TOKEN   = process.env.BOT_TOKEN;
+const CHANNEL_ID  = process.env.CHANNEL_ID;   // e.g. "@mychannel" or "-100xxxxxxxx"
+const API_BASE    = process.env.API_BASE || "http://localhost:3000";
+const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "120000"); // 2 min default
+
+if (!BOT_TOKEN)   throw new Error("BOT_TOKEN is missing in .env");
+if (!CHANNEL_ID)  throw new Error("CHANNEL_ID is missing in .env");
+
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+// ─── State ─────────────────────────────────────────────────────────────────
+
+const seenBreaking = new Set();
+const seenPopular  = new Set();
+let   isFirstRun   = true;
+let   pollCount    = 0;
+let   lastPollTime = null;
+let   pollErrors   = 0;
+
+// ─── Formatters ────────────────────────────────────────────────────────────
+
+function formatBreakingAlert(item) {
+  return (
+    `🔴 *BREAKING NEWS*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `${escMd(item.title)}\n\n` +
+    `🔗 [Read full story](${item.url})\n` +
+    `_Source: Khaleej Times_`
+  );
+}
+
+function formatPopularAlert(item) {
+  const liveTag = item.isLive ? "🔴 *LIVE* " : "";
+  return (
+    `📈 *TRENDING \\#${item.rank}*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `${liveTag}${escMd(item.title)}\n\n` +
+    `🔗 [Read full story](${item.url})\n` +
+    `_Source: Khaleej Times_`
+  );
+}
+
+function formatLatestList(popular) {
+  const lines = popular.slice(0, 5).map((a) => {
+    const live = a.isLive ? "🔴 " : "";
+    return `*${a.rank}\\.* ${live}[${escMd(a.title)}](${a.url})`;
+  });
+  return (
+    `📰 *Most Popular Right Now*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    lines.join("\n\n") +
+    `\n\n_Source: Khaleej Times_`
+  );
+}
+
+function formatBreakingList(breaking) {
+  if (!breaking.length) return "No breaking news right now\\.";
+  const lines = breaking.map(
+    (b, i) => `*${i + 1}\\.* [${escMd(b.title)}](${b.url})`
+  );
+  return (
+    `🔴 *Breaking News*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    lines.join("\n\n") +
+    `\n\n_Source: Khaleej Times_`
+  );
+}
+
+// Escape special MarkdownV2 chars
+function escMd(text) {
+  return (text || "").replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+}
+
+// ─── API helpers ───────────────────────────────────────────────────────────
+
+async function fetchAll() {
+  const { data } = await axios.get(`${API_BASE}/api/all`, { timeout: 15000 });
+  return data;
+}
+
+async function fetchBreaking() {
+  const { data } = await axios.get(`${API_BASE}/api/breaking`, { timeout: 15000 });
+  return data.data || [];
+}
+
+async function fetchPopular() {
+  const { data } = await axios.get(`${API_BASE}/api/popular`, { timeout: 15000 });
+  return data.data || [];
+}
+
+// ─── Broadcast ─────────────────────────────────────────────────────────────
+
+async function broadcast(text) {
+  try {
+    await bot.sendMessage(CHANNEL_ID, text, {
+      parse_mode: "MarkdownV2",
+      disable_web_page_preview: false,
+    });
+  } catch (err) {
+    console.error("[broadcast error]", err.message);
+  }
+}
+
+// ─── Poller ────────────────────────────────────────────────────────────────
+
+async function poll() {
+  try {
+    const result = await fetchAll();
+    const { breaking, popular } = result;
+
+    pollCount++;
+    lastPollTime = new Date();
+    pollErrors = 0;
+
+    if (isFirstRun) {
+      // Seed seen sets without broadcasting on startup
+      (breaking.data || []).forEach((b) => seenBreaking.add(b.title));
+      (popular.data  || []).forEach((p) => seenPopular.add(p.title));
+      isFirstRun = false;
+      console.log(
+        `[poll #${pollCount}] Seeded ${seenBreaking.size} breaking, ` +
+        `${seenPopular.size} popular — now watching for changes.`
+      );
+      return;
+    }
+
+    // Check for new breaking news
+    for (const item of (breaking.data || [])) {
+      if (!seenBreaking.has(item.title)) {
+        seenBreaking.add(item.title);
+        console.log(`[NEW BREAKING] ${item.title}`);
+        await broadcast(formatBreakingAlert(item));
+      }
+    }
+
+    // Check for new most-popular entries (rank 1–5 only)
+    for (const item of (popular.data || []).slice(0, 5)) {
+      if (!seenPopular.has(item.title)) {
+        seenPopular.add(item.title);
+        console.log(`[NEW POPULAR #${item.rank}] ${item.title}`);
+        await broadcast(formatPopularAlert(item));
+      }
+    }
+
+    console.log(
+      `[poll #${pollCount}] OK — ` +
+      `${breaking.data?.length || 0} breaking, ${popular.data?.length || 0} popular`
+    );
+  } catch (err) {
+    pollErrors++;
+    console.error(`[poll error #${pollErrors}]`, err.message);
+  }
+}
+
+// ─── Commands ──────────────────────────────────────────────────────────────
+
+// /start — welcome message
+bot.onText(/\/start/, async (msg) => {
+  const name = msg.from?.first_name || "there";
+  await bot.sendMessage(
+    msg.chat.id,
+    `👋 Hey ${name}\\! I'm the *Khaleej Times News Bot*\\.\n\n` +
+    `I auto\\-broadcast breaking news and trending stories to this channel\\.\n\n` +
+    `*Commands:*\n` +
+    `/latest \\— Top 5 most popular right now\n` +
+    `/breaking \\— Current breaking news\n` +
+    `/status \\— Bot health & stats`,
+    { parse_mode: "MarkdownV2" }
+  );
+});
+
+// /latest — show top 5 popular
+bot.onText(/\/latest/, async (msg) => {
+  try {
+    const popular = await fetchPopular();
+    const text = popular.length
+      ? formatLatestList(popular)
+      : "No popular articles found right now\\.";
+    await bot.sendMessage(msg.chat.id, text, { parse_mode: "MarkdownV2" });
+  } catch (err) {
+    await bot.sendMessage(msg.chat.id, `❌ Failed to fetch latest news\\. Try again shortly\\.`, {
+      parse_mode: "MarkdownV2",
+    });
+  }
+});
+
+// /breaking — current breaking news
+bot.onText(/\/breaking/, async (msg) => {
+  try {
+    const breaking = await fetchBreaking();
+    const text = formatBreakingList(breaking);
+    await bot.sendMessage(msg.chat.id, text, { parse_mode: "MarkdownV2" });
+  } catch (err) {
+    await bot.sendMessage(msg.chat.id, `❌ Failed to fetch breaking news\\. Try again shortly\\.`, {
+      parse_mode: "MarkdownV2",
+    });
+  }
+});
+
+// /status — bot health
+bot.onText(/\/status/, async (msg) => {
+  const uptime  = process.uptime();
+  const hours   = Math.floor(uptime / 3600);
+  const minutes = Math.floor((uptime % 3600) / 60);
+  const seconds = Math.floor(uptime % 60);
+
+  const lastPoll = lastPollTime
+    ? escMd(lastPollTime.toUTCString())
+    : "Not yet polled";
+
+  const text =
+    `✅ *Khaleej Times Bot Status*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `⏱ Uptime: \`${hours}h ${minutes}m ${seconds}s\`\n` +
+    `🔄 Poll count: \`${pollCount}\`\n` +
+    `🕐 Last poll: \`${lastPoll}\`\n` +
+    `⚠️ Poll errors: \`${pollErrors}\`\n` +
+    `📡 Poll interval: \`${POLL_INTERVAL_MS / 1000}s\`\n` +
+    `📰 Seen breaking: \`${seenBreaking.size}\`\n` +
+    `📈 Seen popular: \`${seenPopular.size}\`\n` +
+    `🌐 API: \`${escMd(API_BASE)}\``;
+
+  await bot.sendMessage(msg.chat.id, text, { parse_mode: "MarkdownV2" });
+});
+
+// ─── Start ─────────────────────────────────────────────────────────────────
+
+console.log("🤖 Khaleej Times Telegram Bot starting...");
+console.log(`   Channel : ${CHANNEL_ID}`);
+console.log(`   API     : ${API_BASE}`);
+console.log(`   Interval: ${POLL_INTERVAL_MS / 1000}s`);
+
+poll(); // first poll immediately
+setInterval(poll, POLL_INTERVAL_MS);
+
+bot.on("polling_error", (err) => console.error("[polling error]", err.message));
+console.log("✅ Bot is running!\n");
