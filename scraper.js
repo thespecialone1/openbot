@@ -193,6 +193,25 @@ async function scrapeTopStory() {
 
 // ─── Most Popular ────────────────────────────────────────────────────────────
 
+function getRelativeTimeFromDate(dateString) {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return "Just now";
+
+  const diffMins = Math.floor(diffSecs / 60);
+  if (diffMins < 60) return `${diffMins}m ago`;
+
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
 /**
  * Scrape most popular articles and enrich each with a publish timestamp
  * by calling the Quintype stories-by-slug API.
@@ -222,22 +241,39 @@ async function scrapeMostPopular() {
   });
 
   // Enrich with publish timestamps from Quintype story API (parallel)
-  const enriched = await Promise.all(
+  let enriched = await Promise.all(
     articles.map(async (article) => {
       const meta = article.slug ? await fetchStoryMeta(article.slug) : null;
       const { slug, ...rest } = article; // drop internal slug field
+
+      // We need the raw Date object/string for sorting
+      const rawDate = meta && meta.publishedAt ? new Date(meta.publishedAt) : new Date(0);
+
       return {
         ...rest,
-        publishedAt: meta?.publishedAt || null,
+        _rawDate: rawDate,
+        publishedAt: getRelativeTimeFromDate(meta?.publishedAt) || null,
         author: meta?.author || null,
       };
     })
   );
 
+  // Sort by date descending (newest first)
+  enriched.sort((a, b) => b._rawDate.getTime() - a._rawDate.getTime());
+
+  // Re-assign ranks based on new sorted order and clean up temporary date field
+  enriched = enriched.map((a, i) => {
+    delete a._rawDate;
+    a.rank = i + 1;
+    return a;
+  });
+
   // Prepend the top hero story if it's not already in the list
   const top = await scrapeTopStory();
   if (top && !enriched.some((a) => a.title === top.title)) {
-    return [{ rank: 0, isTop: true, ...top }, ...enriched.map((a) => ({ ...a, rank: a.rank + 1 }))];
+    // Also format the top story's timestamp if it exists, otherwise keep its existing relativeTime
+    const topPublishedAt = top.publishedAt ? getRelativeTimeFromDate(top.publishedAt) : top.relativeTime;
+    return [{ rank: 0, isTop: true, ...top, publishedAt: topPublishedAt }, ...enriched.map((a) => ({ ...a, rank: a.rank + 1 }))];
   }
   return enriched;
 }
