@@ -210,12 +210,42 @@ app.get("/api/summary-cache", (req, res) => {
 
 // ─── Start ──────────────────────────────────────────────────────────────────
 
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
+async function runSummaryJob() {
+  if (!process.env.ELEVENLABS_API_KEY) return; // skip if key not configured
+  try {
+    const { generateSummary, getCachedSummary } = require("./summary");
+    const cached = getCachedSummary();
+    if (cached) return; // still fresh, skip
+
+    console.log("[summary-job] Generating fresh 6-hour summary...");
+    const [breakingRes, popularRes] = await Promise.all([
+      scrapeBreakingNews(),
+      scrapeMostPopular(),
+    ]);
+    await generateSummary(breakingRes, popularRes);
+    console.log("[summary-job] Summary cached successfully.");
+  } catch (err) {
+    console.error("[summary-job] Failed:", err.message);
+  }
+}
+
 app.listen(PORT, () => {
-  console.log(`\n🗞  Khaleej Times News API running on http://localhost:${PORT}`);
-  console.log(`   Endpoints:`);
-  console.log(`     GET  /api/breaking     → Breaking news ticker`);
-  console.log(`     GET  /api/popular      → Most popular articles`);
-  console.log(`     GET  /api/article?url= → Full article content`);
-  console.log(`     GET  /api/all          → Breaking + popular combined`);
-  console.log(`     DELETE /api/cache      → Clear cache\n`);
+  console.log(`\n---  Khaleej Times News API  ---`);
+  console.log(`   Running on : http://localhost:${PORT}`);
+  console.log(`   Dashboard  : http://localhost:${PORT}/dashboard.html`);
+  console.log(`   Health     : http://localhost:${PORT}/health\n`);
+
+  // Pre-generate summary 60 seconds after startup (let scraper warm up first)
+  // then repeat every 6 hours
+  if (process.env.ELEVENLABS_API_KEY) {
+    setTimeout(() => {
+      runSummaryJob();
+      setInterval(runSummaryJob, SIX_HOURS_MS);
+    }, 60_000);
+    console.log("   Summary job: scheduled (60s delay, then every 6h)");
+  } else {
+    console.log("   Summary job: SKIPPED (ELEVENLABS_API_KEY not set)");
+  }
 });
