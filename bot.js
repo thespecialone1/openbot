@@ -317,8 +317,29 @@ console.log(`   Channel : ${CHANNEL_ID}`);
 console.log(`   API     : ${API_BASE}`);
 console.log(`   Interval: ${POLL_INTERVAL_MS / 1000}s`);
 
-poll(); // first poll immediately
-setInterval(poll, POLL_INTERVAL_MS);
+// Delay first poll by 5s to let Telegram drop any previous connection
+setTimeout(() => {
+  poll();
+  setInterval(poll, POLL_INTERVAL_MS);
+}, 5000);
 
-bot.on("polling_error", (err) => console.error("[polling error]", err.message));
-console.log("✅ Bot is running!\n");
+// Handle polling errors — auto-recover from 409 Conflict
+let _conflictRecovery = false;
+bot.on("polling_error", (err) => {
+  const msg = err.message || "";
+  if ((msg.includes("409") || msg.includes("Conflict")) && !_conflictRecovery) {
+    _conflictRecovery = true;
+    console.warn("[polling] 409 Conflict — stopping, waiting 15s then resuming...");
+    bot.stopPolling().then(() => {
+      setTimeout(() => {
+        bot.startPolling();
+        _conflictRecovery = false;
+        console.log("[polling] Resumed after conflict recovery.");
+      }, 15000);
+    }).catch(() => { });
+  } else if (!msg.includes("409") && !msg.includes("Conflict")) {
+    console.error("[polling error]", msg);
+  }
+});
+
+console.log("Bot is running!\n");
