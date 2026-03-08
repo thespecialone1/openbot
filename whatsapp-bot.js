@@ -39,7 +39,11 @@ async function fetchPopular() {
 function formatBreaking(items) {
   if (!items.length) return "🔴 *Breaking News*\n\nNo breaking news at the moment.";
 
-  const lines = items.map((item, i) => {
+  // Filter to only show LIVE news, or fall back to the single top news item
+  const liveItems = items.filter(b => b.isLive);
+  const itemsToShow = liveItems.length > 0 ? liveItems : [items[0]];
+
+  const lines = itemsToShow.map((item, i) => {
     const timePart = item.relativeTime ? ` _(${item.relativeTime})_` : "";
     const live = item.isLive ? "🔴 *LIVE* " : "";
     return `*${i + 1}.* ${live}${item.title}${timePart}\n🔗 ${item.url}`;

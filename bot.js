@@ -84,7 +84,12 @@ function formatLatestList(popular) {
 
 function formatBreakingList(breaking) {
   if (!breaking.length) return "No breaking news right now\\.";
-  const lines = breaking.map((b, i) => {
+
+  // Filter to only show LIVE news, or fall back to the single top news item
+  const liveItems = breaking.filter(b => b.isLive);
+  const itemsToShow = liveItems.length > 0 ? liveItems : [breaking[0]];
+
+  const lines = itemsToShow.map((b, i) => {
     const live = b.isLive ? "🔴 " : "";
     const time = b.relativeTime ? `\n    🕐 _${escMd(b.relativeTime)}_` : "";
     return `*${i + 1}\\.* ${live}${mdLink(b.title, b.url)}${time}`;
