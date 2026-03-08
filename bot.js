@@ -4,32 +4,34 @@ const axios = require("axios");
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-const BOT_TOKEN   = process.env.BOT_TOKEN;
-const CHANNEL_ID  = process.env.CHANNEL_ID;   // e.g. "@mychannel" or "-100xxxxxxxx"
-const API_BASE    = process.env.API_BASE || "http://localhost:3000";
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CHANNEL_ID = process.env.CHANNEL_ID;   // e.g. "@mychannel" or "-100xxxxxxxx"
+const API_BASE = process.env.API_BASE || "http://localhost:3000";
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "120000"); // 2 min default
 
-if (!BOT_TOKEN)   throw new Error("BOT_TOKEN is missing in .env");
-if (!CHANNEL_ID)  throw new Error("CHANNEL_ID is missing in .env");
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN is missing in .env");
+if (!CHANNEL_ID) throw new Error("CHANNEL_ID is missing in .env");
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
 const seenBreaking = new Set();
-const seenPopular  = new Set();
-let   isFirstRun   = true;
-let   pollCount    = 0;
-let   lastPollTime = null;
-let   pollErrors   = 0;
+const seenPopular = new Set();
+let isFirstRun = true;
+let pollCount = 0;
+let lastPollTime = null;
+let pollErrors = 0;
 
 // ─── Formatters ────────────────────────────────────────────────────────────
 
 function formatBreakingAlert(item) {
+  const timePart = item.relativeTime ? `\n🕐 _${escMd(item.relativeTime)}_` : "";
+  const live = item.isLive ? "🔴 *LIVE* " : "";
   return (
     `🔴 *BREAKING NEWS*\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `${escMd(item.title)}\n\n` +
+    `${live}${escMd(item.title)}${timePart}\n\n` +
     `🔗 [Read full story](${item.url})\n` +
     `_Source: Khaleej Times_`
   );
@@ -37,35 +39,58 @@ function formatBreakingAlert(item) {
 
 function formatPopularAlert(item) {
   const liveTag = item.isLive ? "🔴 *LIVE* " : "";
+  const timePart = item.publishedAt ? `\n🕐 _${escMd(item.publishedAt)}_` : "";
   return (
     `📈 *TRENDING \\#${item.rank}*\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `${liveTag}${escMd(item.title)}\n\n` +
+    `${liveTag}${escMd(item.title)}${timePart}\n\n` +
     `🔗 [Read full story](${item.url})\n` +
     `_Source: Khaleej Times_`
   );
 }
 
 function formatLatestList(popular) {
-  const lines = popular.slice(0, 5).map((a) => {
+  let output = "";
+
+  // Rank 0 = hero top story — show first with special label
+  const top = popular.find((a) => a.isTop);
+  const rest = popular.filter((a) => !a.isTop).slice(0, 5);
+
+  if (top) {
+    const live = top.isLive ? "🔴 *LIVE* " : "⭐ ";
+    const time = top.relativeTime || top.publishedAt || null;
+    const timePart = time ? `\n🕐 _${escMd(time)}_` : "";
+    output +=
+      `🗞️ *LATEST STORY*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `${live}[${escMd(top.title)}](${top.url})${timePart}\n\n`;
+  }
+
+  const lines = rest.map((a) => {
     const live = a.isLive ? "🔴 " : "";
-    return `*${a.rank}\\.* ${live}[${escMd(a.title)}](${a.url})`;
+    const time = a.publishedAt || a.relativeTime || null;
+    const timePart = time ? `\n    🕐 _${escMd(time)}_` : "";
+    return `*${a.rank}\\.* ${live}[${escMd(a.title)}](${a.url})${timePart}`;
   });
-  return (
+
+  output +=
     `📰 *Most Popular Right Now*\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     lines.join("\n\n") +
-    `\n\n_Source: Khaleej Times_`
-  );
+    `\n\n_Source: Khaleej Times_`;
+
+  return output;
 }
 
 function formatBreakingList(breaking) {
   if (!breaking.length) return "No breaking news right now\\.";
-  const lines = breaking.map(
-    (b, i) => `*${i + 1}\\.* [${escMd(b.title)}](${b.url})`
-  );
+  const lines = breaking.map((b, i) => {
+    const live = b.isLive ? "🔴 " : "";
+    const time = b.relativeTime ? ` _\(${escMd(b.relativeTime)}\)_` : "";
+    return `*${i + 1}\\.* ${live}[${escMd(b.title)}](${b.url})${time}`;
+  });
   return (
-    `🔴 *Breaking News*\n` +
+    `🔴 *Latest Breaking News*\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     lines.join("\n\n") +
     `\n\n_Source: Khaleej Times_`
@@ -121,7 +146,7 @@ async function poll() {
     if (isFirstRun) {
       // Seed seen sets without broadcasting on startup
       (breaking.data || []).forEach((b) => seenBreaking.add(b.title));
-      (popular.data  || []).forEach((p) => seenPopular.add(p.title));
+      (popular.data || []).forEach((p) => seenPopular.add(p.title));
       isFirstRun = false;
       console.log(
         `[poll #${pollCount}] Seeded ${seenBreaking.size} breaking, ` +
@@ -205,8 +230,8 @@ bot.onText(/\/breaking/, async (msg) => {
 
 // /status — bot health
 bot.onText(/\/status/, async (msg) => {
-  const uptime  = process.uptime();
-  const hours   = Math.floor(uptime / 3600);
+  const uptime = process.uptime();
+  const hours = Math.floor(uptime / 3600);
   const minutes = Math.floor((uptime % 3600) / 60);
   const seconds = Math.floor(uptime % 60);
 
