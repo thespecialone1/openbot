@@ -1,88 +1,77 @@
 /**
  * summary.js
- * Builds a spoken news summary from live + popular articles,
- * converts it to audio via ElevenLabs TTS, and caches the result
- * for 6 hours so we don't burn free-tier credits.
+ * Generates a concise spoken news summary using the official ElevenLabs SDK.
+ * Results are cached for 6 hours to protect free-tier token budget.
  */
 
+const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "";
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // Rachel
-
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // Rachel default
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
-// ─── In-process 6-hour cache ─────────────────────────────────────────────────
+// ─── 6-hour cache ────────────────────────────────────────────────────────────
 
-let _cachedAudio = null;        // Buffer
-let _cachedText = null;         // Plain text of the last summary
-let _cacheTimestamp = 0;        // Date.now() when it was created
+let _cachedAudio = null;   // Buffer
+let _cachedText = null;    // plain text script
+let _cacheTimestamp = 0;
 
-function isCacheStale() {
-    return Date.now() - _cacheTimestamp > SIX_HOURS_MS;
+function isFresh() {
+    return _cachedAudio && (Date.now() - _cacheTimestamp < SIX_HOURS_MS);
 }
 
 function getCachedSummary() {
-    if (_cachedAudio && !isCacheStale()) {
-        return { audio: _cachedAudio, text: _cachedText, cached: true };
-    }
+    if (isFresh()) return { audio: _cachedAudio, text: _cachedText, cached: true };
     return null;
 }
 
-function setCachedSummary(audio, text) {
+function setCached(audio, text) {
     _cachedAudio = audio;
     _cachedText = text;
     _cacheTimestamp = Date.now();
 }
 
-// ─── Article description scraper ─────────────────────────────────────────────
+// ─── Article lead-sentence extractor ─────────────────────────────────────────
 
-/**
- * Scrape the lead paragraph or OG description from a KT article URL.
- * Returns a 1-2 sentence plain-text extract for TTS.
- */
-async function scrapeArticleDescription(url) {
+async function getLeadLine(url) {
     try {
         const res = await axios.get(url, {
-            timeout: 10000,
-            headers: {
-                "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
-            },
+            timeout: 8000,
+            headers: { "User-Agent": "Mozilla/5.0 Chrome/124.0" },
         });
         const $ = cheerio.load(res.data);
 
-        // Try OG description (usually the editor-written summary)
-        const ogDesc = $('meta[property="og:description"]').attr("content") ||
+        // OG description is usually the editor-written intro — best token value
+        const og = $('meta[property="og:description"]').attr("content") ||
             $('meta[name="description"]').attr("content") || "";
-        if (ogDesc && ogDesc.length > 40) return ogDesc.trim();
+        if (og.length > 30) {
+            // Keep it to the first sentence to save characters
+            return og.split(/[.\n]/)[0].trim().slice(0, 160);
+        }
 
-        // Fall back to first meaty paragraph in the article body
-        let fallback = "";
+        // Fallback: first meaty paragraph
+        let found = "";
         $("article p, .story-body p, .article-body p").each((_, el) => {
-            const text = $(el).text().trim();
-            if (!fallback && text.length > 60) fallback = text;
+            const t = $(el).text().trim();
+            if (!found && t.length > 50) found = t.slice(0, 160);
         });
-        return fallback || null;
+        return found || null;
     } catch {
         return null;
     }
 }
 
-// ─── Summary text builder ─────────────────────────────────────────────────────
+// ─── Script builder ───────────────────────────────────────────────────────────
 
 /**
- * Builds the spoken summary script from:
- *  - liveItems: result of /api/breaking (filtered to live or top 1)
- *  - popularItems: result of /api/popular (top 3 by recency)
- *
- * Returns a plain text string suitable for TTS.
+ * Builds a short TTS script (keeps it under ~800 chars to save tokens).
+ * - 1 live/breaking story
+ * - Top 3 popular by recency
  */
-async function buildSummaryText(liveItems, popularItems) {
-    const parts = [];
+async function buildScript(liveItems, popularItems) {
+    const lines = [];
 
-    // Intro
     const now = new Date().toLocaleString("en-AE", {
         timeZone: "Asia/Dubai",
         weekday: "long",
@@ -90,98 +79,62 @@ async function buildSummaryText(liveItems, popularItems) {
         minute: "2-digit",
         hour12: true,
     });
-    parts.push(`Khaleej Times News Summary. ${now}.`);
+    lines.push(`Khaleej Times. ${now}.`);
 
-    // ── Live / Breaking section ──────────────────────────────────────────────
-    const liveOrTop = liveItems.filter(b => b.isLive);
-    const source = liveOrTop.length > 0 ? liveOrTop : liveItems.slice(0, 1);
-
-    if (source.length > 0) {
-        parts.push("Breaking News.");
-        for (const item of source) {
-            const desc = item.url ? await scrapeArticleDescription(item.url) : null;
-            if (desc) {
-                parts.push(`${item.title}. ${desc}`);
-            } else {
-                parts.push(item.title);
-            }
-        }
+    // Breaking / Live
+    const live = liveItems.filter(b => b.isLive);
+    const topBreaking = live.length > 0 ? live[0] : liveItems[0];
+    if (topBreaking) {
+        const lead = topBreaking.url ? await getLeadLine(topBreaking.url) : null;
+        lines.push(`Breaking. ${topBreaking.title}. ${lead || ""}`);
     }
 
-    // ── Top 3 popular by recency ─────────────────────────────────────────────
-    // Popular list is already sorted newest-first by scraper.js
-    const topThree = popularItems.filter(a => !a.isTop).slice(0, 3);
-
-    if (topThree.length > 0) {
-        parts.push("Top Stories.");
-        for (const item of topThree) {
-            const desc = item.url ? await scrapeArticleDescription(item.url) : null;
-            const when = item.publishedAt ? `, published ${item.publishedAt}` : "";
-            if (desc) {
-                parts.push(`${item.title}${when}. ${desc}`);
-            } else {
-                parts.push(`${item.title}${when}.`);
-            }
-        }
+    // Top 3 popular (already sorted newest-first by scraper)
+    const top3 = popularItems.filter(a => !a.isTop).slice(0, 3);
+    if (top3.length) lines.push("Top stories.");
+    for (const item of top3) {
+        const lead = item.url ? await getLeadLine(item.url) : null;
+        lines.push(`${item.title}. ${lead || ""}`);
     }
 
-    parts.push("That is all for this summary. Stay tuned to Khaleej Times for the latest updates.");
-    return parts.join(" ");
+    lines.push("Stay tuned to Khaleej Times.");
+    return lines.join(" ").replace(/\s+/g, " ").trim();
 }
 
-// ─── ElevenLabs TTS ──────────────────────────────────────────────────────────
+// ─── ElevenLabs TTS via official SDK ─────────────────────────────────────────
 
-/**
- * Convert text to speech using ElevenLabs API.
- * Returns a Buffer containing the MP3 audio.
- */
-async function synthesizeAudio(text) {
-    if (!ELEVENLABS_API_KEY) {
+async function synthesize(text) {
+    if (!process.env.ELEVENLABS_API_KEY) {
         throw new Error("ELEVENLABS_API_KEY is not set in .env");
     }
 
-    const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`;
-    const response = await axios.post(
-        url,
-        {
-            text,
-            model_id: "eleven_monolingual_v1",
-            voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.5,
-            },
-        },
-        {
-            headers: {
-                "xi-api-key": ELEVENLABS_API_KEY,
-                "Content-Type": "application/json",
-                Accept: "audio/mpeg",
-            },
-            responseType: "arraybuffer",
-            timeout: 60000,
-        }
-    );
+    const client = new ElevenLabsClient({
+        apiKey: process.env.ELEVENLABS_API_KEY,
+    });
 
-    return Buffer.from(response.data);
+    const audioStream = await client.textToSpeech.convert(VOICE_ID, {
+        text,
+        modelId: "eleven_multilingual_v2",
+        outputFormat: "mp3_44100_128",
+    });
+
+    // Collect stream into Buffer
+    const chunks = [];
+    for await (const chunk of audioStream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-/**
- * Main entry point — called by the WhatsApp bot's /summary handler.
- * Returns { audio: Buffer, text: string, cached: boolean }
- *
- * @param {Array} liveItems  — from /api/breaking
- * @param {Array} popularItems — from /api/popular
- */
 async function generateSummary(liveItems, popularItems) {
-    // Serve cached copy if still fresh
     const cached = getCachedSummary();
     if (cached) return cached;
 
-    const text = await buildSummaryText(liveItems, popularItems);
-    const audio = await synthesizeAudio(text);
-    setCachedSummary(audio, text);
+    const text = await buildScript(liveItems, popularItems);
+    const audio = await synthesize(text);
+    setCached(audio, text);
     return { audio, text, cached: false };
 }
 
