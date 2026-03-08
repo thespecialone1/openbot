@@ -26,25 +26,37 @@ let pollErrors = 0;
 // ─── Formatters ────────────────────────────────────────────────────────────
 
 function formatBreakingAlert(item) {
-  const timePart = item.relativeTime ? `\n🕐 _${escMd(item.relativeTime)}_` : "";
+  const timePart = item.relativeTime ? `
+🕐 _${escMd(item.relativeTime)}_` : "";
   const live = item.isLive ? "🔴 *LIVE* " : "";
   return (
-    `🔴 *BREAKING NEWS*\n` +
-    `━━━━━━━━━━━━━━━━━━━━\n` +
-    `${live}${escMd(item.title)}${timePart}\n\n` +
-    `🔗 [Read full story](${item.url})\n` +
+    `🔴 *BREAKING NEWS*
+` +
+    `━━━━━━━━━━━━━━━━━━━━
+` +
+    `${live}${escMd(item.title)}${timePart}
+
+` +
+    `🔗 ${mdLink("Read full story", item.url)}
+` +
     `_Source: Khaleej Times_`
   );
 }
 
 function formatPopularAlert(item) {
   const liveTag = item.isLive ? "🔴 *LIVE* " : "";
-  const timePart = item.publishedAt ? `\n🕐 _${escMd(item.publishedAt)}_` : "";
+  const timePart = item.publishedAt ? `
+🕐 _${escMd(item.publishedAt)}_` : "";
   return (
-    `📈 *TRENDING \\#${item.rank}*\n` +
-    `━━━━━━━━━━━━━━━━━━━━\n` +
-    `${liveTag}${escMd(item.title)}${timePart}\n\n` +
-    `🔗 [Read full story](${item.url})\n` +
+    `📈 *TRENDING \#${item.rank}*
+` +
+    `━━━━━━━━━━━━━━━━━━━━
+` +
+    `${liveTag}${escMd(item.title)}${timePart}
+
+` +
+    `🔗 ${mdLink("Read full story", item.url)}
+` +
     `_Source: Khaleej Times_`
   );
 }
@@ -83,23 +95,38 @@ function formatLatestList(popular) {
 }
 
 function formatBreakingList(breaking) {
-  if (!breaking.length) return "No breaking news right now\\.";
+  if (!breaking.length) return "No breaking news right now\.";
   const lines = breaking.map((b, i) => {
     const live = b.isLive ? "🔴 " : "";
-    const time = b.relativeTime ? ` _\(${escMd(b.relativeTime)}\)_` : "";
-    return `*${i + 1}\\.* ${live}[${escMd(b.title)}](${b.url})${time}`;
+    const time = b.relativeTime ? `
+    🕐 _${escMd(b.relativeTime)}_` : "";
+    return `*${i + 1}\.* ${live}${mdLink(b.title, b.url)}${time}`;
   });
   return (
-    `🔴 *Latest Breaking News*\n` +
-    `━━━━━━━━━━━━━━━━━━━━\n` +
-    lines.join("\n\n") +
-    `\n\n_Source: Khaleej Times_`
-  );
+    `🔴 *Latest Breaking News*
+` +
+    `━━━━━━━━━━━━━━━━━━━━
+` +
+    lines.join("
+
+") +
+        `
+
+_Source: Khaleej Times_`
+    );
 }
 
 // Escape special MarkdownV2 chars
 function escMd(text) {
   return (text || "").replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+}
+
+// Safe link: falls back to plain URL if title has unescapable content
+function mdLink(title, url) {
+  if (!url) return escMd(title);
+  // URLs inside () must have ) escaped
+  const safeUrl = (url || "").replace(/\)/g, "\)");
+  return `[${escMd(title)}](${safeUrl})`;
 }
 
 // ─── API helpers ───────────────────────────────────────────────────────────
