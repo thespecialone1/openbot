@@ -97,7 +97,7 @@ async function buildScript(liveItems, popularItems) {
         lines.push(`${item.title}. ${lead || ""}`);
     }
 
-    lines.push("Stay tuned to Khaleej Times.");
+    lines.push("This has been a news report from Khaleej Times. Stay tuned to OpenBot.");
     return lines.join(" ").replace(/\s+/g, " ").trim();
 }
 

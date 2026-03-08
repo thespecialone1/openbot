@@ -97,7 +97,6 @@ async function handleCommand(sock, jid, text) {
 
   // ── /breaking ──────────────────────────────────────────────────────────────
   if (cmd === "/breaking") {
-    await sock.sendMessage(jid, { text: "Fetching latest news..." });
     try {
       const items = await fetchBreaking();
       const liveOrTop = items.filter(b => b.isLive).length > 0
@@ -130,7 +129,6 @@ async function handleCommand(sock, jid, text) {
 
     // ── /news ──────────────────────────────────────────────────────────────────
   } else if (cmd === "/news") {
-    await sock.sendMessage(jid, { text: "Fetching top stories..." });
     try {
       const items = await fetchPopular();
       await sock.sendMessage(jid, { text: formatNews(items) });
@@ -158,9 +156,6 @@ async function handleCommand(sock, jid, text) {
 
     // ── /summary ───────────────────────────────────────────────────────────────
   } else if (cmd === "/summary") {
-    await sock.sendMessage(jid, {
-      text: "Generating audio summary, please wait... (this may take up to 60 seconds the first time)",
-    });
     try {
       const [breaking, popular] = await Promise.all([fetchBreaking(), fetchPopular()]);
       const result = await generateSummary(breaking, popular);

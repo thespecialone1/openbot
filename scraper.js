@@ -164,20 +164,21 @@ async function scrapeBreakingNews() {
  */
 async function scrapeTopStory() {
   const $ = await fetchHomepage();
-  const el = $(".top-nf a").first();
-  if (!el.length) return null;
+  const topNf = $(".top-nf").first();
+  if (!topNf.length) return null;
 
-  const href = el.attr("href") || "";
+  const aTag = topNf.find("h1 a").last(); // The one with the real text
+  const href = aTag.attr("href") || topNf.find("a").first().attr("href") || "";
   const url = href.startsWith("http") ? href.split("?")[0] : `${BASE_URL}${href.split("?")[0]}`;
   const slug = slugFromUrl(href);
 
-  const title = el.find("h1").text()
+  const title = topNf.find("h1").text()
     .replace(/Live/gi, "").replace(/\s+/g, " ").trim();
 
-  const isLive = el.find(".pulsB, [class*='live'], .pulse1").length > 0 ||
-    el.text().toLowerCase().includes("live");
+  const isLive = topNf.find(".pulsB, [class*='live'], .pulse1").length > 0 ||
+    topNf.text().toLowerCase().includes("live");
 
-  const rawTime = el.find(".st-h-m-nf").text().trim() || null;
+  const rawTime = topNf.find(".st-h-m-nf").text().trim() || null;
 
   const meta = slug ? await fetchStoryMeta(slug) : null;
 
