@@ -95,25 +95,18 @@ function formatLatestList(popular) {
 }
 
 function formatBreakingList(breaking) {
-  if (!breaking.length) return "No breaking news right now\.";
+  if (!breaking.length) return "No breaking news right now\\.";
   const lines = breaking.map((b, i) => {
     const live = b.isLive ? "🔴 " : "";
-    const time = b.relativeTime ? `
-    🕐 _${escMd(b.relativeTime)}_` : "";
-    return `*${i + 1}\.* ${live}${mdLink(b.title, b.url)}${time}`;
+    const time = b.relativeTime ? `\n    🕐 _${escMd(b.relativeTime)}_` : "";
+    return `*${i + 1}\\.* ${live}${mdLink(b.title, b.url)}${time}`;
   });
   return (
-    `🔴 *Latest Breaking News*
-` +
-    `━━━━━━━━━━━━━━━━━━━━
-` +
-    lines.join("
-
-") +
-        `
-
-_Source: Khaleej Times_`
-    );
+    `🔴 *Latest Breaking News*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    lines.join("\n\n") +
+    `\n\n_Source: Khaleej Times_`
+  );
 }
 
 // Escape special MarkdownV2 chars
