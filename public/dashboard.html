@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,129 +8,528 @@
   <style>
     :root {
       --bg: #0d0d0d;
-      --surface: #1a1a1a;
+      --surface: #161616;
+      --surface2: #1e1e1e;
       --border: #2a2a2a;
       --accent: #e63946;
+      --accent2: #ff6b6b;
       --text: #ececec;
-      --muted: #888;
+      --muted: #777;
       --green: #2ecc71;
+      --blue: #3498db;
+      --gold: #f39c12;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ─── Header ─────────────────────────────────────────── */
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .logo span {
+      color: var(--accent);
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.5);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.5)
+      }
+
+      70% {
+        box-shadow: 0 0 0 8px rgba(46, 204, 113, 0)
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(46, 204, 113, 0)
+      }
+    }
+
+    .header-right {
+      margin-left: auto;
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    header h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.02em; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-    .status-badge { font-size: 0.72rem; color: var(--green); border: 1px solid var(--green); border-radius: 20px; padding: 2px 10px; margin-left: auto; }
-    #last-updated { font-size: 0.72rem; color: var(--muted); margin-left: 12px; }
 
-    main { padding: 28px 32px; max-width: 1100px; margin: auto; }
+    .badge {
+      font-size: 0.68rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--green);
+      color: var(--green);
+      letter-spacing: 0.05em;
+    }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
-    .card {
+    .updated {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    /* ─── Nav ────────────────────────────────────────────── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      display: flex;
+      gap: 4px;
+    }
+
+    nav button {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 12px 16px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    nav button.active {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+    }
+
+    nav button:hover {
+      color: var(--text);
+    }
+
+    /* ─── Layout ─────────────────────────────────────────── */
+    main {
+      max-width: 1200px;
+      margin: auto;
+      padding: 24px 28px;
+    }
+
+    .tab {
+      display: none;
+    }
+
+    .tab.active {
+      display: block;
+    }
+
+    /* ─── Stats grid ─────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px 24px;
+      border-radius: 10px;
+      padding: 18px 20px;
     }
-    .card label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 6px; }
-    .card .value { font-size: 2rem; font-weight: 700; color: var(--text); }
-    .card .sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
 
-    h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+    .stat-card label {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: block;
+      margin-bottom: 8px;
+    }
 
-    .bar-chart { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 28px; }
-    .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .bar-row:last-child { margin-bottom: 0; }
-    .bar-label { width: 80px; font-size: 0.82rem; color: var(--muted); }
-    .bar-track { flex: 1; background: var(--border); border-radius: 4px; height: 10px; overflow: hidden; }
-    .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.5s ease; }
-    .bar-count { font-size: 0.82rem; color: var(--text); width: 40px; text-align: right; }
+    .stat-card .val {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
 
-    .activity { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 28px; }
-    canvas { display: block; width: 100%; height: 80px; }
+    .stat-card .sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
 
-    footer { text-align: center; color: var(--muted); font-size: 0.72rem; padding: 24px; }
-    footer a { color: var(--accent); text-decoration: none; }
+    /* ─── Section header ─────────────────────────────────── */
+    .section-head {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: 0 0 12px;
+    }
+
+    /* ─── Cmd bars ───────────────────────────────────────── */
+    .cmd-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .bar-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .bar-label {
+      width: 80px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: monospace;
+    }
+
+    .bar-track {
+      flex: 1;
+      background: var(--border);
+      border-radius: 3px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 3px;
+      transition: width 0.6s ease;
+    }
+
+    .bar-count {
+      font-size: 0.8rem;
+      color: var(--text);
+      width: 36px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ─── Activity canvas ────────────────────────────────── */
+    .activity-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 72px;
+    }
+
+    /* ─── News cards ─────────────────────────────────────── */
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .news-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s;
+    }
+
+    .news-card:hover {
+      border-color: #444;
+    }
+
+    .news-card .thumb {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      background: var(--surface2);
+      display: block;
+    }
+
+    .news-card .thumb-placeholder {
+      width: 100%;
+      height: 100px;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .news-card .body {
+      padding: 14px 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .news-card .meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .news-card .live-badge {
+      font-size: 0.62rem;
+      background: var(--accent);
+      color: white;
+      padding: 2px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .news-card .top-badge {
+      font-size: 0.62rem;
+      background: var(--gold);
+      color: #000;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    .news-card .time {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .news-card h3 {
+      font-size: 0.88rem;
+      line-height: 1.4;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .news-card a {
+      color: var(--blue);
+      font-size: 0.75rem;
+      text-decoration: none;
+      margin-top: 10px;
+      display: inline-block;
+    }
+
+    .news-card a:hover {
+      text-decoration: underline;
+    }
+
+    .rank {
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    /* ─── Summary page ───────────────────────────────────── */
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .summary-card h2 {
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    .summary-text {
+      font-size: 0.92rem;
+      line-height: 1.8;
+      color: #ccc;
+      white-space: pre-wrap;
+    }
+
+    .summary-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 16px;
+    }
+
+    .refresh-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      margin-top: 12px;
+    }
+
+    .refresh-btn:hover {
+      background: var(--accent2);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.68rem;
+      padding: 20px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
   </style>
 </head>
+
 <body>
   <header>
-    <div class="dot"></div>
-    <h1>KT News Bot — Analytics</h1>
-    <span class="status-badge" id="status-badge">ONLINE</span>
-    <span id="last-updated"></span>
+    <div class="pulse"></div>
+    <div class="logo">KT <span>News</span> Bot</div>
+    <div class="header-right">
+      <span class="badge" id="status-badge">ONLINE</span>
+      <span class="updated" id="last-updated"></span>
+    </div>
   </header>
 
+  <nav>
+    <button class="active" onclick="showTab('analytics')">Analytics</button>
+    <button onclick="showTab('breaking')">Breaking News</button>
+    <button onclick="showTab('popular')">Popular</button>
+    <button onclick="showTab('summary')">Summary</button>
+  </nav>
+
   <main>
-    <div class="grid">
-      <div class="card">
-        <label>Uptime</label>
-        <div class="value" id="uptime">—</div>
-        <div class="sub">since last restart</div>
+    <!-- Analytics Tab -->
+    <div class="tab active" id="tab-analytics">
+      <div class="stats-grid">
+        <div class="stat-card"><label>Uptime</label>
+          <div class="val" id="uptime">—</div>
+          <div class="sub">since last restart</div>
+        </div>
+        <div class="stat-card"><label>Memory</label>
+          <div class="val" id="memory">—</div>
+          <div class="sub">heap used</div>
+        </div>
+        <div class="stat-card"><label>Total API Hits</label>
+          <div class="val" id="total-hits">—</div>
+          <div class="sub">all endpoints</div>
+        </div>
+        <div class="stat-card"><label>Started At</label>
+          <div class="val" id="started-time" style="font-size:1rem">—</div>
+          <div class="sub">Dubai time</div>
+        </div>
       </div>
-      <div class="card">
-        <label>Memory</label>
-        <div class="value" id="memory">—</div>
-        <div class="sub">heap used</div>
-      </div>
-      <div class="card">
-        <label>Total API Hits</label>
-        <div class="value" id="total-hits">—</div>
-        <div class="sub">all endpoints combined</div>
-      </div>
-      <div class="card">
-        <label>Server Started</label>
-        <div class="value" id="started-time" style="font-size:1rem">—</div>
-        <div class="sub">Dubai time</div>
+      <p class="section-head">Command Usage</p>
+      <div class="cmd-card" id="bar-chart"></div>
+      <p class="section-head">Request Activity (last 30 min)</p>
+      <div class="activity-card"><canvas id="activity-canvas"></canvas></div>
+    </div>
+
+    <!-- Breaking Tab -->
+    <div class="tab" id="tab-breaking">
+      <p class="section-head" style="margin-bottom:16px">Breaking & Live Stories</p>
+      <div class="news-grid" id="breaking-grid">
+        <div class="empty-state">Loading...</div>
       </div>
     </div>
 
-    <h2>Command Usage</h2>
-    <div class="bar-chart" id="bar-chart">
-      <!-- filled by JS -->
+    <!-- Popular Tab -->
+    <div class="tab" id="tab-popular">
+      <p class="section-head" style="margin-bottom:16px">Most Popular — Sorted by Recency</p>
+      <div class="news-grid" id="popular-grid">
+        <div class="empty-state">Loading...</div>
+      </div>
     </div>
 
-    <h2>Request Activity (last 200 requests)</h2>
-    <div class="activity">
-      <canvas id="activity-canvas"></canvas>
+    <!-- Summary Tab -->
+    <div class="tab" id="tab-summary">
+      <div class="summary-card">
+        <h2>Last Audio Summary Script</h2>
+        <div class="summary-text" id="summary-text">No summary has been generated yet. Send /summary on WhatsApp to
+          generate one.</div>
+        <div class="summary-meta" id="summary-meta"></div>
+      </div>
+      <p style="font-size:0.78rem;color:var(--muted)">The audio summary is generated every 6 hours via ElevenLabs TTS
+        when a user sends <code>/summary</code> on WhatsApp.</p>
     </div>
   </main>
 
   <footer>
-    Refreshes every 30 seconds &mdash; <a href="/api/stats">Raw JSON</a> &mdash; <a href="/health">Health</a>
+    Auto-refreshes every 30s &mdash; <a href="/api/stats">Stats JSON</a> &mdash; <a href="/health">Health</a> &mdash; <a
+      href="/api/breaking">Breaking JSON</a> &mdash; <a href="/api/popular">Popular JSON</a>
   </footer>
 
   <script>
+    let activeTab = 'analytics';
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      event.target.classList.add('active');
+      activeTab = name;
+    }
+
     function fmtUptime(s) {
-      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-      return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
     }
 
     function fmtDate(iso) {
-      return new Date(iso).toLocaleString("en-AE", { timeZone: "Asia/Dubai", hour12: true, hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" });
+      return new Date(iso).toLocaleString('en-AE', { timeZone: 'Asia/Dubai', hour12: true, hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });
     }
 
     function drawActivity(timestamps) {
-      const canvas = document.getElementById("activity-canvas");
-      const ctx = canvas.getContext("2d");
-      const W = canvas.parentElement.offsetWidth - 48;
-      const H = 80;
+      const canvas = document.getElementById('activity-canvas');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.parentElement.offsetWidth - 40;
+      const H = 72;
       canvas.width = W;
       canvas.height = H;
       ctx.clearRect(0, 0, W, H);
-
       if (!timestamps.length) return;
       const now = Date.now();
-      const window = 30 * 60 * 1000; // 30 min window
+      const window = 30 * 60 * 1000;
       const buckets = 60;
       const counts = new Array(buckets).fill(0);
       timestamps.forEach(ts => {
@@ -142,49 +542,85 @@
       const barW = W / buckets;
       counts.forEach((c, i) => {
         const barH = (c / maxCount) * (H - 10);
-        ctx.fillStyle = `rgba(230,57,70,${0.3 + 0.7 * (c / maxCount)})`;
+        const alpha = 0.25 + 0.75 * (c / maxCount);
+        ctx.fillStyle = `rgba(230, 57, 70, ${alpha})`;
         ctx.beginPath();
         ctx.roundRect(i * barW + 1, H - barH, barW - 2, barH, 2);
         ctx.fill();
       });
     }
 
+    function renderNewsCard(item, type) {
+      const live = item.isLive ? '<span class="live-badge">LIVE</span>' : '';
+      const top = item.isTop ? '<span class="top-badge">TOP</span>' : '';
+      const rank = item.rank > 0 ? `<span class="rank">#${item.rank}</span>` : '';
+      const time = item.publishedAt || item.relativeTime || '';
+      const timeEl = time ? `<span class="time">${time}</span>` : '';
+      const link = item.url ? `<a href="${item.url}" target="_blank" rel="noopener">Read full story →</a>` : '';
+      return `
+        <div class="news-card">
+          <div class="body">
+            <div class="meta">${live}${top}${rank}${timeEl}</div>
+            <h3>${item.title || 'Untitled'}</h3>
+            ${link}
+          </div>
+        </div>`;
+    }
+
     async function refresh() {
       try {
-        const [statsRes, healthRes] = await Promise.all([
-          fetch("/api/stats").then(r => r.json()),
-          fetch("/health").then(r => r.json()),
+        const [statsRes, breakingRes, popularRes, summaryRes] = await Promise.all([
+          fetch('/api/stats').then(r => r.json()),
+          fetch('/api/breaking').then(r => r.json()),
+          fetch('/api/popular').then(r => r.json()),
+          fetch('/api/summary-cache').then(r => r.json()).catch(() => ({ text: null })),
         ]);
 
-        document.getElementById("uptime").textContent = fmtUptime(statsRes.uptime);
-        document.getElementById("memory").textContent = `${statsRes.memoryMB} MB`;
-        document.getElementById("started-time").textContent = fmtDate(statsRes.startedAt);
-
+        // Analytics tab
+        document.getElementById('uptime').textContent = fmtUptime(statsRes.uptime);
+        document.getElementById('memory').textContent = `${statsRes.memoryMB} MB`;
+        document.getElementById('started-time').textContent = fmtDate(statsRes.startedAt);
         const cmds = statsRes.commands || {};
         const total = Object.values(cmds).reduce((a, b) => a + b, 0);
-        document.getElementById("total-hits").textContent = total;
-
-        const badge = document.getElementById("status-badge");
-        badge.textContent = healthRes.status === "ok" ? "ONLINE" : "ERROR";
-        badge.style.borderColor = healthRes.status === "ok" ? "var(--green)" : "var(--accent)";
-        badge.style.color = healthRes.status === "ok" ? "var(--green)" : "var(--accent)";
-
-        // Bar chart
-        const chart = document.getElementById("bar-chart");
+        document.getElementById('total-hits').textContent = total;
         const maxVal = Math.max(...Object.values(cmds), 1);
-        chart.innerHTML = Object.entries(cmds).map(([k, v]) =>
+        document.getElementById('bar-chart').innerHTML = Object.entries(cmds).map(([k, v]) =>
           `<div class="bar-row">
             <span class="bar-label">${k}</span>
             <div class="bar-track"><div class="bar-fill" style="width:${(v / maxVal) * 100}%"></div></div>
             <span class="bar-count">${v}</span>
-          </div>`
-        ).join("");
-
+          </div>`).join('');
         drawActivity(statsRes.recentRequests || []);
-        document.getElementById("last-updated").textContent = `Updated ${new Date().toLocaleTimeString("en-AE", { timeZone: "Asia/Dubai" })}`;
-      } catch (e) {
-        document.getElementById("status-badge").textContent = "OFFLINE";
-        document.getElementById("status-badge").style.color = "var(--accent)";
+
+        // Status badge
+        const badge = document.getElementById('status-badge');
+        badge.textContent = 'ONLINE';
+        badge.style.borderColor = 'var(--green)';
+        badge.style.color = 'var(--green)';
+
+        // Breaking tab
+        const breaking = breakingRes.data || [];
+        document.getElementById('breaking-grid').innerHTML = breaking.length
+          ? breaking.map(b => renderNewsCard(b, 'breaking')).join('')
+          : '<div class="empty-state">No breaking news right now.</div>';
+
+        // Popular tab
+        const popular = popularRes.data || [];
+        document.getElementById('popular-grid').innerHTML = popular.length
+          ? popular.map(p => renderNewsCard(p, 'popular')).join('')
+          : '<div class="empty-state">No popular articles found.</div>';
+
+        // Summary tab
+        const summaryText = summaryRes.text;
+        document.getElementById('summary-text').textContent = summaryText
+          || 'No summary has been generated yet.\n\nSend /summary on WhatsApp to generate one. The script will appear here.';
+
+        document.getElementById('last-updated').textContent = `Updated ${new Date().toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai' })}`;
+      } catch {
+        const badge = document.getElementById('status-badge');
+        badge.textContent = 'OFFLINE';
+        badge.style.color = 'var(--accent)';
+        badge.style.borderColor = 'var(--accent)';
       }
     }
 
@@ -192,4 +628,5 @@
     setInterval(refresh, 30000);
   </script>
 </body>
+
 </html>

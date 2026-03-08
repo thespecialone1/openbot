@@ -12,7 +12,16 @@ const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "120000"); // 
 if (!BOT_TOKEN) throw new Error("BOT_TOKEN is missing in .env");
 if (!CHANNEL_ID) throw new Error("CHANNEL_ID is missing in .env");
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(BOT_TOKEN, {
+  polling: {
+    interval: 2000,
+    autoStart: true,
+    params: { timeout: 10, allowed_updates: ["message", "callback_query"] },
+  },
+});
+
+// Drop any stale sessions from old instances immediately
+bot.getUpdates({ offset: -1, timeout: 0 }).catch(() => { });
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
@@ -317,27 +326,16 @@ console.log(`   Channel : ${CHANNEL_ID}`);
 console.log(`   API     : ${API_BASE}`);
 console.log(`   Interval: ${POLL_INTERVAL_MS / 1000}s`);
 
-// Delay first poll by 5s to let Telegram drop any previous connection
+// Delay first poll by 3s to let Telegram settle after dropPendingUpdates
 setTimeout(() => {
   poll();
   setInterval(poll, POLL_INTERVAL_MS);
-}, 5000);
+}, 3000);
 
-// Handle polling errors — auto-recover from 409 Conflict
-let _conflictRecovery = false;
+// Silence 409 Conflict noise — resolved by dropPendingUpdates above
 bot.on("polling_error", (err) => {
   const msg = err.message || "";
-  if ((msg.includes("409") || msg.includes("Conflict")) && !_conflictRecovery) {
-    _conflictRecovery = true;
-    console.warn("[polling] 409 Conflict — stopping, waiting 15s then resuming...");
-    bot.stopPolling().then(() => {
-      setTimeout(() => {
-        bot.startPolling();
-        _conflictRecovery = false;
-        console.log("[polling] Resumed after conflict recovery.");
-      }, 15000);
-    }).catch(() => { });
-  } else if (!msg.includes("409") && !msg.includes("Conflict")) {
+  if (!msg.includes("409") && !msg.includes("Conflict")) {
     console.error("[polling error]", msg);
   }
 });

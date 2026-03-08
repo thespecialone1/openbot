@@ -193,6 +193,21 @@ app.delete("/api/cache", (req, res) => {
   res.json({ success: true, message: "Cache cleared" });
 });
 
+// GET /api/summary-cache — returns last generated summary text for dashboard
+app.get("/api/summary-cache", (req, res) => {
+  try {
+    const { getCachedSummary } = require("./summary");
+    const cached = getCachedSummary();
+    if (cached) {
+      res.json({ success: true, text: cached.text, cached: true });
+    } else {
+      res.json({ success: true, text: null, cached: false });
+    }
+  } catch {
+    res.json({ success: true, text: null, cached: false });
+  }
+});
+
 // ─── Start ──────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
