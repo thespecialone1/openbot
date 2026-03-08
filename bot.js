@@ -213,14 +213,36 @@ bot.onText(/\/start/, async (msg) => {
   );
 });
 
-// /latest — show top 5 popular
+// /latest — show top 5 popular with inline Read More buttons
 bot.onText(/\/latest/, async (msg) => {
   try {
     const popular = await fetchPopular();
-    const text = popular.length
-      ? formatLatestList(popular)
-      : "No popular articles found right now\\.";
-    await bot.sendMessage(msg.chat.id, text, { parse_mode: "MarkdownV2" });
+    if (!popular.length) {
+      return bot.sendMessage(msg.chat.id, "No popular articles found right now\\.", { parse_mode: "MarkdownV2" });
+    }
+
+    const top = popular.find(a => a.isTop);
+    const rest = popular.filter(a => !a.isTop).slice(0, 5);
+    const all = top ? [top, ...rest] : rest;
+
+    for (const item of all) {
+      const live = item.isLive ? "🔴 *LIVE* " : (item.isTop ? "⭐ " : "");
+      const time = item.publishedAt || item.relativeTime || null;
+      const timePart = time ? `\n🕐 _${escMd(time)}_` : "";
+      const rank = item.isTop ? "*TOP STORY*" : `*#${item.rank}*`;
+      const text =
+        `${rank}\n` +
+        `${live}${escMd(item.title)}${timePart}`;
+
+      await bot.sendMessage(msg.chat.id, text, {
+        parse_mode: "MarkdownV2",
+        reply_markup: item.url ? {
+          inline_keyboard: [[
+            { text: "Read Full Story", url: item.url },
+          ]]
+        } : undefined,
+      });
+    }
   } catch (err) {
     await bot.sendMessage(msg.chat.id, `❌ Failed to fetch latest news\\. Try again shortly\\.`, {
       parse_mode: "MarkdownV2",
@@ -228,12 +250,33 @@ bot.onText(/\/latest/, async (msg) => {
   }
 });
 
-// /breaking — current breaking news
+// /breaking — current breaking news with inline Read More button
 bot.onText(/\/breaking/, async (msg) => {
   try {
     const breaking = await fetchBreaking();
-    const text = formatBreakingList(breaking);
-    await bot.sendMessage(msg.chat.id, text, { parse_mode: "MarkdownV2" });
+    if (!breaking.length) {
+      return bot.sendMessage(msg.chat.id, "No breaking news right now\\.", { parse_mode: "MarkdownV2" });
+    }
+
+    const liveItems = breaking.filter(b => b.isLive);
+    const itemsToShow = liveItems.length > 0 ? liveItems : [breaking[0]];
+
+    for (const item of itemsToShow) {
+      const live = item.isLive ? "🔴 *LIVE* " : "";
+      const time = item.relativeTime ? `\n🕐 _${escMd(item.relativeTime)}_` : "";
+      const text =
+        `🔴 *BREAKING*\n` +
+        `${live}${escMd(item.title)}${time}`;
+
+      await bot.sendMessage(msg.chat.id, text, {
+        parse_mode: "MarkdownV2",
+        reply_markup: item.url ? {
+          inline_keyboard: [[
+            { text: "Read Full Story", url: item.url },
+          ]]
+        } : undefined,
+      });
+    }
   } catch (err) {
     await bot.sendMessage(msg.chat.id, `❌ Failed to fetch breaking news\\. Try again shortly\\.`, {
       parse_mode: "MarkdownV2",

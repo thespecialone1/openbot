@@ -1,5 +1,6 @@
 const express = require("express");
 const NodeCache = require("node-cache");
+const path = require("path");
 const { scrapeBreakingNews, scrapeMostPopular, scrapeArticle } = require("./scraper");
 
 const app = express();
@@ -9,6 +10,21 @@ const PORT = process.env.PORT || 3000;
 const cache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+
+// ─── Analytics ──────────────────────────────────────────────────────────────
+
+const stats = {
+  commands: { breaking: 0, popular: 0, article: 0, all: 0 },
+  recentRequests: [], // timestamps of last 200 requests
+  startedAt: new Date().toISOString(),
+};
+
+function trackRequest(command) {
+  if (stats.commands[command] !== undefined) stats.commands[command]++;
+  stats.recentRequests.push(Date.now());
+  if (stats.recentRequests.length > 200) stats.recentRequests.shift();
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -55,7 +71,24 @@ app.get("/", (req, res) => {
  * GET /api/breaking
  * Returns the current breaking news ticker items
  */
+// GET /health — for UptimeRobot / monitoring
+app.get("/health", (req, res) => {
+  const memMB = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+  res.json({ status: "ok", uptime: Math.floor(process.uptime()), memoryMB: parseFloat(memMB) });
+});
+
+// GET /api/stats — analytics data
+app.get("/api/stats", (req, res) => {
+  const memMB = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+  res.json({
+    ...stats,
+    uptime: Math.floor(process.uptime()),
+    memoryMB: parseFloat(memMB),
+  });
+});
+
 app.get("/api/breaking", cacheMiddleware("breaking", 120), async (req, res) => {
+  trackRequest("breaking");
   try {
     const news = await scrapeBreakingNews();
     sendAndCache(res, {
@@ -75,6 +108,7 @@ app.get("/api/breaking", cacheMiddleware("breaking", 120), async (req, res) => {
  * Returns the most popular articles list
  */
 app.get("/api/popular", cacheMiddleware("popular", 300), async (req, res) => {
+  trackRequest("popular");
   try {
     const articles = await scrapeMostPopular();
     sendAndCache(res, {
@@ -131,6 +165,7 @@ app.get("/api/article", async (req, res) => {
  * Returns breaking news + most popular in one shot (useful for Telegram bot polling)
  */
 app.get("/api/all", cacheMiddleware("all", 120), async (req, res) => {
+  trackRequest("all");
   try {
     const [breaking, popular] = await Promise.all([
       scrapeBreakingNews(),
