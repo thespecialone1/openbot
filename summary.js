@@ -10,26 +10,42 @@ const cheerio = require("cheerio");
 
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // Rachel default
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const fs = require("fs");
+const path = require("path");
 
-// ─── 6-hour cache ────────────────────────────────────────────────────────────
+const CACHE_JSON = path.join(__dirname, "summary_cache.json");
+const CACHE_AUDIO = path.join(__dirname, "summary_audio.mp3");
 
-let _cachedAudio = null;   // Buffer
-let _cachedText = null;    // plain text script
-let _cacheTimestamp = 0;
+// ─── 6-hour cache via file system ────────────────────────────────────────────
 
 function isFresh() {
-    return _cachedAudio && (Date.now() - _cacheTimestamp < SIX_HOURS_MS);
+    try {
+        if (!fs.existsSync(CACHE_JSON) || !fs.existsSync(CACHE_AUDIO)) return false;
+        const data = JSON.parse(fs.readFileSync(CACHE_JSON, "utf8"));
+        return (Date.now() - data.timestamp < SIX_HOURS_MS);
+    } catch {
+        return false;
+    }
 }
 
 function getCachedSummary() {
-    if (isFresh()) return { audio: _cachedAudio, text: _cachedText, cached: true };
+    try {
+        if (isFresh()) {
+            const data = JSON.parse(fs.readFileSync(CACHE_JSON, "utf8"));
+            const audio = fs.readFileSync(CACHE_AUDIO);
+            return { audio, text: data.text, cached: true };
+        }
+    } catch { }
     return null;
 }
 
 function setCached(audio, text) {
-    _cachedAudio = audio;
-    _cachedText = text;
-    _cacheTimestamp = Date.now();
+    try {
+        fs.writeFileSync(CACHE_JSON, JSON.stringify({ text, timestamp: Date.now() }));
+        fs.writeFileSync(CACHE_AUDIO, audio);
+    } catch (err) {
+        console.error("Failed to write summary cache to disk:", err);
+    }
 }
 
 // ─── Article lead-sentence extractor ─────────────────────────────────────────

@@ -488,6 +488,7 @@
         <h2>Last Audio Summary Script</h2>
         <div class="summary-text" id="summary-text">No summary has been generated yet. Send /summary on WhatsApp to
           generate one.</div>
+        <audio controls id="summary-audio" style="display: none; width: 100%; margin-top: 15px;"></audio>
         <div class="summary-meta" id="summary-meta"></div>
       </div>
       <p style="font-size:0.78rem;color:var(--muted)">The audio summary is generated every 6 hours via ElevenLabs TTS
@@ -614,6 +615,14 @@
         const summaryText = summaryRes.text;
         document.getElementById('summary-text').textContent = summaryText
           || 'No summary has been generated yet.\n\nSend /summary on WhatsApp to generate one. The script will appear here.';
+        
+        const audioEl = document.getElementById('summary-audio');
+        if (summaryText) {
+          audioEl.src = '/api/summary-audio?t=' + Date.now();
+          audioEl.style.display = 'block';
+        } else {
+          audioEl.style.display = 'none';
+        }
 
         document.getElementById('last-updated').textContent = `Updated ${new Date().toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai' })}`;
       } catch {

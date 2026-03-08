@@ -208,6 +208,22 @@ app.get("/api/summary-cache", (req, res) => {
   }
 });
 
+// GET /api/summary-audio — returns last generated summary audio for dashboard
+app.get("/api/summary-audio", (req, res) => {
+  try {
+    const { getCachedSummary } = require("./summary");
+    const cached = getCachedSummary();
+    if (cached && cached.audio) {
+      res.set("Content-Type", "audio/mpeg");
+      res.send(cached.audio);
+    } else {
+      res.status(404).send("Audio not generated yet.");
+    }
+  } catch {
+    res.status(500).send("Error fetching audio.");
+  }
+});
+
 // ─── Start ──────────────────────────────────────────────────────────────────
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;

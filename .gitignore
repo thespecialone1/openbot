@@ -18,3 +18,7 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Summary Cache
+summary_cache.json
+summary_audio.mp3

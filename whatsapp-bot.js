@@ -157,6 +157,16 @@ async function handleCommand(sock, jid, text) {
     // ── /summary ───────────────────────────────────────────────────────────────
   } else if (cmd === "/summary") {
     try {
+      // Send waiting message with mascot
+      try {
+        await sock.sendMessage(jid, {
+          image: { url: path.join(__dirname, "public", "mascot.png") },
+          caption: "🤖 *OpenBot News*\n\n⏳ Fetching your latest news summary... Please wait a moment.",
+        });
+      } catch (err) {
+        await sock.sendMessage(jid, { text: "⏳ Fetching your latest news summary... Please wait a moment." });
+      }
+
       const [breaking, popular] = await Promise.all([fetchBreaking(), fetchPopular()]);
       const result = await generateSummary(breaking, popular);
 
