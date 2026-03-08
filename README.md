@@ -1,202 +1,141 @@
-# Khaleej Times News API
+# Khaleej Times News Bot
 
-A lightweight Express API that scrapes breaking news and most popular articles from [khaleejtimes.com](https://www.khaleejtimes.com).
+Scrapes breaking news and most popular articles from [khaleejtimes.com](https://www.khaleejtimes.com) and delivers them via **Telegram** and **WhatsApp**.
 
-## Setup
+---
 
+## Project Structure
+
+```
+openbot/
+├── server.js          # Express REST API (scraper endpoints)
+├── scraper.js         # Cheerio + Quintype API scraping logic
+├── bot.js             # Telegram bot
+├── whatsapp-bot.js    # WhatsApp bot (Baileys)
+├── pm2.config.js      # PM2 process manager config
+├── .env.example       # Environment variable template
+└── .gitignore
+```
+
+---
+
+## First-Time Setup on Ubuntu Server
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
+cd YOUR_REPO
+```
+
+### 2. Install Node.js (if not installed)
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+### 3. Install PM2 globally
+```bash
+sudo npm install -g pm2
+```
+
+### 4. Install dependencies
 ```bash
 npm install
-npm start          # production
-npm run dev        # development with hot-reload (nodemon)
 ```
 
-Server starts on **http://localhost:3000** by default.  
-Set `PORT=XXXX` env var to change it.
-
----
-
-## Endpoints
-
-### `GET /api/breaking`
-Returns breaking news items from the ticker.
-
-**Response:**
-```json
-{
-  "success": true,
-  "count": 2,
-  "fetchedAt": "2025-03-07T10:00:00.000Z",
-  "cached": false,
-  "data": [
-    {
-      "title": "Emirates suspends flights to and from Dubai until further notice",
-      "url": "https://www.khaleejtimes.com/business/aviation/emirates-suspends-flights..."
-    }
-  ]
-}
-```
-Cache TTL: **2 minutes**
-
----
-
-### `GET /api/popular`
-Returns the most popular articles.
-
-**Response:**
-```json
-{
-  "success": true,
-  "count": 5,
-  "fetchedAt": "2025-03-07T10:00:00.000Z",
-  "cached": false,
-  "data": [
-    {
-      "rank": 1,
-      "title": "Day 6 of US-Iran war: UAE intercepts more missiles...",
-      "url": "https://www.khaleejtimes.com/world/mena/...",
-      "isLive": false
-    },
-    {
-      "rank": 3,
-      "title": "DXB suspends operations; Emirates to resume flights...",
-      "url": "https://www.khaleejtimes.com/world/mena/...",
-      "isLive": true
-    }
-  ]
-}
-```
-Cache TTL: **5 minutes**
-
----
-
-### `GET /api/article?url=<article_url>`
-Scrapes the full content of a specific article.
-
-**Example:**
-```
-GET /api/article?url=https://www.khaleejtimes.com/business/aviation/emirates-suspends-flights
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "fetchedAt": "2025-03-07T10:00:00.000Z",
-  "cached": false,
-  "data": {
-    "title": "Emirates suspends flights...",
-    "description": "The airline said...",
-    "author": "Staff Reporter",
-    "publishedAt": "2025-03-07T08:30:00.000Z",
-    "imageUrl": "https://...",
-    "content": "Full article text...",
-    "url": "https://www.khaleejtimes.com/..."
-  }
-}
-```
-Cache TTL: **10 minutes**
-
----
-
-### `GET /api/all`
-Returns both breaking news and most popular in one request — ideal for Telegram bot polling.
-
-Cache TTL: **2 minutes**
-
----
-
-### `DELETE /api/cache`
-Flushes all cached data and forces fresh scrapes on next requests.
-
----
-
-## Caching
-
-| Endpoint    | TTL        |
-|-------------|------------|
-| `/breaking` | 2 minutes  |
-| `/popular`  | 5 minutes  |
-| `/all`      | 2 minutes  |
-| `/article`  | 10 minutes |
-
-Every response includes a `"cached": true/false` field.
-
----
-
-## Telegram Bot Setup
-
-### 1. Create your bot
-- Open Telegram, message **@BotFather**
-- Run `/newbot` → follow prompts → copy the **token**
-
-### 2. Create a channel and add the bot
-- Create a public or private Telegram channel
-- Add your bot as an **Administrator** (with permission to post messages)
-- Copy the channel username (e.g. `@mykhaleejnews`) or the numeric ID
-
-### 3. Configure `.env`
+### 5. Configure environment
 ```bash
 cp .env.example .env
-# Edit .env and fill in BOT_TOKEN and CHANNEL_ID
+nano .env
 ```
+Fill in:
+- `BOT_TOKEN` — from Telegram @BotFather
+- `CHANNEL_ID` — your Telegram channel (e.g. `@mychannel`)
+- `API_BASE` — leave as `http://localhost:3000`
 
-### 4. Run everything
-
-**Terminal 1 — API server:**
+### 6. Link WhatsApp (one-time only)
 ```bash
-npm run start:api
+node whatsapp-bot.js
 ```
+Scan the QR code:
+- Open WhatsApp on your phone
+- Go to **Settings → Linked Devices → Link a Device**
+- Scan the QR in your terminal
 
-**Terminal 2 — Telegram bot:**
-```bash
-npm run start:bot
-```
-
-### Bot commands
-| Command | Description |
-|---|---|
-| `/latest` | Top 5 most popular articles right now |
-| `/breaking` | Current breaking news ticker |
-| `/status` | Bot health, uptime, poll stats |
-
-### How auto-broadcast works
-- On first run the bot **seeds** its memory silently (no startup spam)
-- Every 2 minutes it polls `/api/all`
-- Any **new** breaking news → instant 🔴 alert to channel
-- Any **new** trending story (top 5) → 📈 alert to channel
-- Seen titles stored in memory — duplicates are never sent
+Once you see `✅ WhatsApp connected!`, press `Ctrl+C` to stop.  
+The session is saved in `./wa-session/` — you won't need to scan again.
 
 ---
 
-## Legacy Telegram Bot snippet
+## Running Everything
 
-Poll `/api/all` every 2 minutes to detect new breaking news.  
-Compare titles against previously seen ones to fire alerts only for new items.
+### Start all services with one command
+```bash
+npm start
+```
+This launches 3 processes via PM2:
+| Process | What it does |
+|---|---|
+| `kt-api` | REST API server on port 3000 |
+| `kt-telegram` | Telegram bot + auto-broadcast |
+| `kt-whatsapp` | WhatsApp command bot |
 
-```js
-// Minimal Telegram bot polling example
-const axios = require('axios');
-const TelegramBot = require('node-telegram-bot-api');
+### Other commands
+```bash
+npm run stop      # Stop all services
+npm run restart   # Restart all services
+npm run logs      # Live logs from all processes
+npm run status    # See if all 3 are online
+```
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
-const CHAT_ID = process.env.CHAT_ID;
-const API = 'http://localhost:3000';
+### Enable auto-start on server reboot (run once)
+```bash
+pm2 save
+pm2 startup
+```
+PM2 will print a command — copy and run it. After that, all services start automatically every time the server reboots. No manual intervention needed.
 
-let seenBreaking = new Set();
+---
 
-async function poll() {
-  const { data } = await axios.get(`${API}/api/all`);
-  
-  for (const item of data.breaking.data) {
-    if (!seenBreaking.has(item.title)) {
-      seenBreaking.add(item.title);
-      bot.sendMessage(CHAT_ID, `🔴 *Breaking News*\n\n${item.title}\n${item.url}`, {
-        parse_mode: 'Markdown'
-      });
-    }
-  }
-}
+## Telegram Bot
 
-setInterval(poll, 2 * 60 * 1000); // every 2 min
-poll(); // run immediately
+Auto-broadcasts to your channel every 2 minutes. Also responds to commands:
+
+| Command | Description |
+|---|---|
+| `/latest` | Top 5 most popular articles |
+| `/breaking` | Current breaking news |
+| `/status` | Bot health and uptime stats |
+
+## WhatsApp Bot
+
+Anyone with your number can send:
+
+| Command | Description |
+|---|---|
+| `/breaking` | Breaking news with timestamps |
+| `/news` | Top 5 most popular stories |
+
+---
+
+## Updating the Bot
+
+When you push changes to GitHub, pull and restart on your server:
+
+```bash
+git pull
+npm install      # only if package.json changed
+npm run restart
+```
+
+---
+
+## Logs & Monitoring
+
+```bash
+npm run status          # quick health check
+pm2 logs kt-api         # API server logs
+pm2 logs kt-telegram    # Telegram bot logs
+pm2 logs kt-whatsapp    # WhatsApp bot logs
+pm2 monit               # live dashboard
 ```
