@@ -79,18 +79,18 @@ async function fetchStoryMeta(slug) {
 
 // ─── Fetch & cache homepage ──────────────────────────────────────────────────
 
-let _homepageCache = null;
+let _homepageCacheHtml = null;
 let _homepageCacheTime = 0;
 
 async function fetchHomepage() {
   const now = Date.now();
-  if (_homepageCache && now - _homepageCacheTime < 60_000) {
-    return _homepageCache; // reuse within 60s to avoid double-fetching
+  if (_homepageCacheHtml && now - _homepageCacheTime < 60_000) {
+    return cheerio.load(_homepageCacheHtml); // reuse within 60s to avoid double-fetching
   }
   const response = await axiosInstance.get("/");
-  _homepageCache = cheerio.load(response.data);
+  _homepageCacheHtml = response.data;
   _homepageCacheTime = now;
-  return _homepageCache;
+  return cheerio.load(_homepageCacheHtml);
 }
 
 // ─── Breaking / Latest News ─────────────────────────────────────────────────

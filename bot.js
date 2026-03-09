@@ -180,6 +180,7 @@ async function poll() {
     // Check for new breaking news
     for (const item of (breaking.data || [])) {
       if (!seenBreaking.has(item.title)) {
+        if (seenBreaking.size > 200) seenBreaking.clear();
         seenBreaking.add(item.title);
         console.log(`[NEW BREAKING] ${item.title}`);
         await broadcast(formatBreakingAlert(item));
@@ -189,6 +190,7 @@ async function poll() {
     // Check for new most-popular entries (rank 1–5 only)
     for (const item of (popular.data || []).slice(0, 5)) {
       if (!seenPopular.has(item.title)) {
+        if (seenPopular.size > 200) seenPopular.clear();
         seenPopular.add(item.title);
         console.log(`[NEW POPULAR #${item.rank}] ${item.title}`);
         await broadcast(formatPopularAlert(item));

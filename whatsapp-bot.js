@@ -280,8 +280,8 @@ async function startBot() {
         console.log("Logged out. Delete ./wa-session and restart.");
         process.exit(1);
       } else {
-        console.log(`Disconnected (${code}), reconnecting in 5s...`);
-        setTimeout(startBot, 5000);
+        console.log(`Disconnected (${code}), letting PM2 cleanly restart the process...`);
+        process.exit(1);
       }
     }
   });
